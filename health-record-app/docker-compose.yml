@@ -1,0 +1,44 @@
+# Orquestación del entorno: base de datos PostgreSQL + API Node.js
+# Uso: copiar .env.example a .env y ejecutar `docker compose up --build`
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: edus_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Define POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Define POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
+    ports:
+      # Puerto del host 5433 para no chocar con un PostgreSQL instalado localmente
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      # Volumen persistente de datos
+      - db_data:/var/lib/postgresql/data
+      # Script de inicialización: se ejecuta solo cuando el volumen está vacío
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      # La API no arranca hasta que PostgreSQL acepte conexiones
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: ./backend
+    container_name: edus_api
+    restart: unless-stopped
+    environment:
+      # Dentro de la red de Docker el host de la base de datos es el nombre del servicio: "db"
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-2h}
+      PORT: ${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:

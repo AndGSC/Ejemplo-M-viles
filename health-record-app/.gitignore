@@ -1,0 +1,15 @@
+# Variables de entorno (contienen secretos)
+.env
+
+# Dependencias y compilados
+node_modules/
+backend/dist/
+
+# Expo / React Native
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/.env
+
+*.log
+.DS_Store
